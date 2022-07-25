@@ -1,11 +1,10 @@
 import scrapy
-import re
-from ..helpers import *
+from ..helpers import log_error
 from ..items import CategoryItem, ProductItem
 
 
 class Spa(scrapy.Spider):
-    name = "trial"
+    name = "spaservice"
     base_url = "https://store.spaservice.se/sv/"
 
     no_of_requests = 0
@@ -27,12 +26,12 @@ class Spa(scrapy.Spider):
         )
 
     def parse(self, response):
-        category_urls =  [a.attrib.get('href') for a in response.css("ul.nav.nav-stacked.nav-pills li a")]
+        category_urls = [a.attrib.get('href') for a in response.css("ul.nav.nav-stacked.nav-pills li a")]
         for url in category_urls:
             yield scrapy.Request(
                 url=url,
                 callback=self.parse_category
-            )   
+            )
 
     def parse_category(self, response):
         category_item = CategoryItem()
@@ -47,13 +46,12 @@ class Spa(scrapy.Spider):
         category_item['child_product_urls'] = []
         category_item['child_category_urls'] = [a.attrib.get('href') for a in response.css("div.category.hover-light a.link")]
         category_item['description_html'] = []
-        
+
         if response.css("div#box-category.box div div p"):
             category_item['description_html'] = response.css("div#box-category.box div div p").get()
-            
+
         if response.css("div#box-category.box"):
             category_item['description_html'] = response.css("div#box-category.box").get()
-               
 
         for div in response.css('div.product.product-column.hover-light'):
             link = div.css('a.link').attrib.get('href')
@@ -82,40 +80,37 @@ class Spa(scrapy.Spider):
         item['parent_category_url'] = parent_url
         item['product_type'] = 'SIMPLE'
         item['url'] = response.url
-        item['sku'] =  response.css("div.sku span.value::text").get()
-        item['title'] =  response.css("div div h1.title::text").get()
-        item['image_urls'] = [img.attrib.get('src') for img in response.css("div.image-wrapper a img.img-responsive")]
+        item['sku'] = response.css("div.sku span.value::text").get()
+        item['title'] = response.css("div div h1.title::text").get()
+        # item['image_urls'] = [img.attrib.get('src') for img in response.css("div.image-wrapper a img.img-responsive")]
         item['price_currency'] = "SEK"
-        
+
         item['price_value'] = []
         item['stock_status_refined'] = "DISCONTINUED"
 
         if response.css("div.price-wrapper span.price"):
-            item['price_value'] =  response.css("div.price-wrapper span.price::text").get().replace('kr', "")
+            item['price_value'] = response.css("div.price-wrapper span.price::text").get().replace('kr', "")
 
         if response.css("div.stock-status div.stock-partly-available"):
-             item['stock_status_refined'] = 'BACKORDER'
+            item['stock_status_refined'] = 'BACKORDER'
         if response.css("div.stock-status div.stock-available"):
-             item['stock_status_refined'] = 'IN_STOCK'
-
+            item['stock_status_refined'] = 'IN_STOCK'
 
         attributes = {}
         for table in response.css("div.technical-data table.table.table-striped"):
             table_key = table.css("thead tr th::text").get()
             temp_attr = {}
-        
-            for tr in  response.css("div.technical-data table.table.table-striped tbody tr"):
+
+            for tr in response.css("div.technical-data table.table.table-striped tbody tr"):
                 try:
                     key = tr.css("td")[0].css('::text').get()
                     value = tr.css("td")[1].css('::text').get()
                     temp_attr.update({key: value})
-                except Exception as e:
-                    print(e)
+                except Exception:
+                    pass
             attributes.update({table_key: temp_attr})
 
         item['attributes'] = attributes
-
-
 
         item['related_products'] = []
 
@@ -129,12 +124,9 @@ class Spa(scrapy.Spider):
         desc_html = ''
 
         if response.css('div#description'):
-            desc_text +=  ''.join([text.strip() for text in response.css("div#description::text").getall()])
-            desc_html +=  ''.join( response.css("div#description").getall())
-
-        # if response.css("div#description.tab-pane p"):
-        #     desc_text +=  ''.join([text.strip() for text in response.css("div#description.tab-pane p::text").getall()])
-        #     desc_html += ''.join(response.css("div#description.tab-pane p").getall())
+            desc_text += response.css("div#description::text").get()
+            desc_text += ''.join([text.css("::text").get().strip() for text in response.css("div#description *") if text.css('::text').get()])
+            desc_html += ''.join(response.css("div#description").getall())
 
         item['product_descriptions'] = {
             'SV': {
