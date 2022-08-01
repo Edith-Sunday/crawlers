@@ -124,13 +124,11 @@ class Spapart(scrapy.Spider):
         
         item['related_products'] = []
         
-        for a in response.css("div.caption a"):
-            if not a.attrib.get('type'):
-                _rel_prod_url = f"https://www.spapartsnordic.se/{a.attrib.get('href')}"
-                item['related_products'].append({
-                    'relation': 'RELATED_PRODUCT',
-                    'url': _rel_prod_url
-                })
+        _rel_prod_url = [a.attrib.get('href') for a in response.css("div.genux-product-related div div a")]
+        item['related_products'].append({
+            'relation': 'RELATED_PRODUCT',
+            'url': _rel_prod_url
+        })
 
         item['attributes'] = []
         yield item
