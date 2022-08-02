@@ -3,7 +3,7 @@ from ..helpers import *
 from ..items import CategoryItem, ProductItem
 
 
-class Spapart(scrapy.Spider):
+class AstralPool(scrapy.Spider):
     name = "astralpool"
     base_url = "https://www.astralpool.com/"
 
@@ -26,7 +26,7 @@ class Spapart(scrapy.Spider):
         )
 
     def parse(self, response):
-        category_urls =  [li.css('a').attrib.get('href') for li in response.css("div div.genux-left.genux-header-products1.genux-abd-5 ul li")]
+        category_urls = [li.css('a').attrib.get('href') for li in response.css("div div.genux-left.genux-header-products1.genux-abd-5 ul li")]
         for url in category_urls:
             yield scrapy.Request(
                 url=url,
@@ -84,13 +84,19 @@ class Spapart(scrapy.Spider):
         item['breadcrumbs'] = response.url.replace(self.base_url, '')
         item['parent_category_url'] = parent_url
         item['file_urls'] = []
-        item['file_data'] = {}
+        item['file_data'] = []
 
-        item['product_type'] = 'VARIANT_CHILD'
+        item['price_value'] = -1
+        item['price_currency'] = 'SEK'
+
+        item['stock_status_refined'] = 'IN_STOCK'
+
+        item['product_type'] = 'VARIANT_PARENT'
         item['variant_children_skus'] = []
 
-        if not variant_parent_sku:
-            item['product_type'] = 'VARIANT_PARENT'
+        if variant_parent_sku:
+            item['product_type'] = 'VARIANT_CHILD'
+            item['variant_parent_sku'] = variant_parent_sku
 
         item['url'] = response.url
         item['title'] = response.css("h1 span::text").get()
@@ -108,8 +114,8 @@ class Spapart(scrapy.Spider):
         desc_text = ''
         desc_html = ''
 
-        desc_text += [text.strip() for text in response.css("div.genux-product-desc p::text").getall()]
-        desc_html += [text.strip() for text in response.css("div.genux-product-desc p").getall()]
+        desc_text += ''.join([text.strip() for text in response.css("div.genux-product-desc p::text").getall()])
+        desc_html += ''.join([text.strip() for text in response.css("div.genux-product-desc p").getall()])
 
         item['product_descriptions'] = {
             'SV': {
