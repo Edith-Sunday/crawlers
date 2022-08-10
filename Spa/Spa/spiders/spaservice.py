@@ -70,7 +70,7 @@ class Spa(scrapy.Spider):
             )
         yield category_item
 
-    def parse_product(self, response): 
+    def parse_product(self, response):
         parent_url = response.meta.get('parent_url')
 
         item = ProductItem()
