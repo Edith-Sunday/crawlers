@@ -36,54 +36,35 @@ def fetch_spider_credentials(spider):
     return username, password
 
 
-# def logged_in(find_what, in_text, ):
-#     if find_what not in in_text:
-#         print('ERROR NOT LOGGED IN')
-#         # open_in_browser(response)
-#         self.login_failures += 1
-#         if self.login_failures > 10:
-#             print('ABORTING! Reached 10 pages where login check failed!')
-#             exit()
-#         return False
-#     return True
+def custom_request_delay(spider):
+    spider.no_of_requests += 1
+
+    try:
+        custom_delay_rules = spider.custom_delay_rules
+    except Exception:
+        custom_delay_rules = {
+            # Example: After 500 requests, do a paus for 180 seconds and so forth
+            500: 180,
+            200: 90,
+            50: 30,
+            20: 10,
+            5: 1,
+        }
+
+    for count, sleep_seconds in custom_delay_rules.items():
+        if spider.no_of_requests % count == 0:
+            spider.logger.debug(f'Done {spider.no_of_requests} requests, pausing for {sleep_seconds} seconds...')
+            sleep(sleep_seconds)
+            continue
 
 
-# def create_webdriver(self):
-#     """
-#     Used to create a chrome driver for downloading pages...
-#     :return: selenium.webdriver.Chrome object
-#     """
-#     # Creating Chrome Window
-#     path_to_driver = 'C:/Users/tobbe/Documents/git-repos/scrapy_villaspa_se/villaspa_se/chromedriver.exe'
-#     chrome_options = Options()
-#     chrome_options.add_argument("--disable-notifications")
-#     try:
-#         driver = webdriver.Chrome(path_to_driver, options=chrome_options)
-#         self.logger.info('Webdriver initiated...')
-#     except Exception as err:
-#         self.logger.error('Could not initiate webdriver the normal way...')
-#         self.logger.exception(err)
-#         driver = webdriver.Chrome(options=chrome_options)
-#
-#     sleep(1)
-#     return driver
-
-
-# def split_label_and_price(label):
-#     # Split text like "With unions (+4,69€ HT)" into components: Label and Priceimpact
-#
-#     price_impact_text = None
-#     price_impact_decimal = 0
-#     if '(' in label and '€' in label and 'HT' in label:
-#         price_impact_text = label[label.find('(') + 1:]
-#         label = label[:label.find('(')].strip()
-#         price_impact_text = price_impact_text.replace(')', '').strip()
-#         price_impact_decimal = price_impact_text
-#         try:
-#             price_impact_decimal = price_impact_decimal.replace('€ HT', '')
-#             price_impact_decimal = price_impact_decimal.replace(',', '.')
-#             price_impact_decimal = Decimal(price_impact_decimal)
-#         except InvalidOperation as err:
-#             raise InvalidOperation(f'Failed to convert "{price_impact_decimal}" to Decimal!\n{err}')
-#
-#     return label, price_impact_text, price_impact_decimal
+def log_error(spider, error, severity='ERROR', classification='UNDEFINED'):
+    try:
+        if classification not in spider.error_log:
+            spider.error_log[classification] = {}
+        if severity not in spider.error_log[classification]:
+            spider.error_log[classification][severity] = []
+        spider.error_log[classification][severity].append(error)
+        spider.logger.error(error)
+    except Exception as err:
+        spider.logger.error(f'Failed to write error message: {error} due to {err}')
