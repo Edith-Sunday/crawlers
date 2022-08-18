@@ -1,6 +1,7 @@
 # This file contains a bunch of helpers that are common for more than one spider...
 
 import json
+from time import sleep
 error_log = []
 
 def fetch_ecombooster_credentials():
