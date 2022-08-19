@@ -157,6 +157,7 @@ class ProductItem(scrapy.Item):
     #     'HEAD - Q max': '300 L/min',
     #   }
     attributes = scrapy.Field()                 # Optional
+    variant_attributes = scrapy.Field()
 
     # image_urls is populated in the scraping process, contains a list of URLs to images.
     # image_details is optional and can be used to store additional information about images. The image_url shall

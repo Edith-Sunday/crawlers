@@ -1,4 +1,3 @@
-from tkinter import SCROLL
 import scrapy
 from ..helpers import *
 from ..items import CategoryItem, ProductItem
@@ -27,6 +26,7 @@ class Dahl(scrapy.Spider):
 
     # crawled models
     urls = {}
+    variant_attrs = {}
 
     def start_requests(self):
         username, password = fetch_spider_credentials(self.name)
@@ -49,29 +49,6 @@ class Dahl(scrapy.Spider):
                 "LoginAction": ""
             },
             callback=self.execute_search
-        )
-
-    def test_minified(self, response):
-        category_item = CategoryItem()
-        category_item['scraper'] = self.name
-        category_item['item_type'] = 'category'
-        category_item['url'] = "https://www.dahl.se/store/SearchDisplay?storeId=10551&catalogId=10002&langId=46&pageSize=12&beginIndex=0&sType=SimpleSearch&resultCatEntryType=1&resultType=1&showResultsPage=true&pageView=image&coSearchSkuEnabled=true&searchType=102&searchTerm=Sv%C3%A4ngbar+utloppspip+Oras"
-        category_item['title'] = "brand_name"
-        yield category_item
-
-        custom_request_delay(self)
-        yield scrapy.Request(
-            url="https://www.dahl.se/store/SearchDisplay?storeId=10551&catalogId=10002&langId=46&pageSize=12&beginIndex=0&sType=SimpleSearch&resultCatEntryType=1&resultType=1&showResultsPage=true&pageView=image&coSearchSkuEnabled=true&searchType=102&searchTerm=Sv%C3%A4ngbar+utloppspip+Oras",
-            headers={
-                'x-requested-with': 'XMLHttpRequest',
-            },
-            meta={
-                'page': 1,
-                'brand_name': "Oras",
-                'facet': "facet",
-                'category_url': "https://www.dahl.se/store/SearchDisplay?storeId=10551&catalogId=10002&langId=46&pageSize=12&beginIndex=0&sType=SimpleSearch&resultCatEntryType=1&resultType=1&showResultsPage=true&pageView=image&coSearchSkuEnabled=true&searchType=102&searchTerm=Sv%C3%A4ngbar+utloppspip+Oras",
-            },
-            callback=self.parse_search_results,
         )
 
     def execute_search(self, response):
@@ -183,6 +160,8 @@ class Dahl(scrapy.Spider):
             item['attributes'] = {
                 'Brand': brand_name,
             }
+            item["variant_attributes"] = {}
+            self.variant_attrs[item["sku"]] = {}
 
             custom_request_delay(self)
             url = f'https://www.dahl.se/store/AjaxCatalogSearchResultCompView?'\
@@ -298,7 +277,8 @@ class Dahl(scrapy.Spider):
                         },
                         callback=self.parse_product,
                     )
-            yield item
+        item['variant_attributes'] = self.variant_attrs[item["sku"]]
+        yield item
 
     def parse_product(self, response):
         parent_sku = response.meta.get('parent_sku', None)
@@ -375,6 +355,8 @@ class Dahl(scrapy.Spider):
         for li in response.css("div ul#technicaldoc.list li"):
             if li.css("a").attrib.get("href"):
                 m = li.css("a").attrib.get("href")
+                if m.startswith("/"):
+                    m = f"https://www.dahl.se{m}"
                 variant_item['file_urls'].append(m)
 
         priority = len(variant_item['image_urls']) + 1
@@ -387,5 +369,7 @@ class Dahl(scrapy.Spider):
                     'priority': priority
                 }
                 priority += 1
-
+        self.variant_attrs[item["sku"]].update({
+            variant_item["sku"]: variant_item["attributes"]
+        })
         yield variant_item
