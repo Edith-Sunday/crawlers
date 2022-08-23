@@ -55,7 +55,12 @@ class CategoryItem(scrapy.Item):
     image_urls = scrapy.Field()                 # Optional
     image_details = scrapy.Field()              # Optional
     images = scrapy.Field()                     # Added by the Pipeline
-
+    import_export_taric_code_eu = scrapy.Field()
+    import_export_country_of_origin = scrapy.Field()
+    brand = scrapy.Field()
+    series = scrapy.Field()
+    unique_selling_points = scrapy.Field()
+    model = scrapy.Field()
 
 class ProductItem(scrapy.Item):
     """
@@ -276,6 +281,12 @@ class ProductItem(scrapy.Item):
     #        "id": "7332793176529" }
     #     }
     part_numbers = scrapy.Field()               # Optional, validation exists
+    import_export_taric_code_eu = scrapy.Field()
+    import_export_country_of_origin = scrapy.Field()                  #
+    brand = scrapy.Field()
+    series = scrapy.Field()
+    unique_selling_points = scrapy.Field()
+    model = scrapy.Field()                  #
 
     # TODO - Things that might be added in the future...
     # This is used for products that have a parent, e.g.
