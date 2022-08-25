@@ -28,6 +28,8 @@ class DuschbyggarnaSQARP(scrapy.Spider):
 
         ws = work_book['Product Base Data']
 
+        packages = self.read_packages(ws)
+
         categories = {}
 
         for row in ws.iter_rows(min_row=5, max_row=2896):
@@ -81,8 +83,11 @@ class DuschbyggarnaSQARP(scrapy.Spider):
                     'id': ean_code,
                 }
             }
-
             item['parent_category_url'] = category_item['url']
+
+            package_data = packages.get(item['sku'])
+            if package_data:
+                item['attributes'].update(package_data)
 
             category_item['child_product_urls'].append(item['url'])
             categories[category_name] = category_item
@@ -120,3 +125,22 @@ class DuschbyggarnaSQARP(scrapy.Spider):
             })
 
         return export_config == input_config
+
+    @staticmethod
+    def read_packages(ws):
+        attr = {}
+
+        if ws.max_column > 8:
+            print('There seems to be more columns')
+
+        for row in ws.iter_rows(min_row=5, max_row=2896):
+
+            temp_attr = {
+                'package_depth_mm': row[3].value,
+                'package_height_mm': row[4].value,
+                'package_width_mm': row[5].value,
+                'package_volume_m3': row[6].value,
+                'package_weight_kg': row[7].value,
+            }
+            attr.update({row[0].value: temp_attr})
+        return attr
