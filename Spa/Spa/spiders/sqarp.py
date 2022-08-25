@@ -1,5 +1,6 @@
 import scrapy
 from openpyxl import load_workbook
+from decimal import Decimal
 
 from ..helpers import log_error
 from ..items import CategoryItem, ProductItem
@@ -17,7 +18,9 @@ class DuschbyggarnaSQARP(scrapy.Spider):
         )
 
     def parse(self, response):
-        work_book = self.read_file('data_input/duschbyggarna_sqarp_base.xlsx')
+        # work_book = self.read_file('data_input/duschbyggarna_sqarp_base.xlsx')
+        work_book = self.read_file('base.xlsx')
+
 
         if not self.is_valid(work_book['Document Overview']):
             print('Received invalid document')
@@ -35,7 +38,7 @@ class DuschbyggarnaSQARP(scrapy.Spider):
                 category_item = CategoryItem()
                 # TODO - Why does title have https appended?
                 #  why was not url set for the category?
-                category_item['title'] = f'https://{category_name.lower()}'
+                category_item['title'] = category_name.lower()
                 category_item['url'] = f'https://{category_name.lower()}'
                 category_item['child_product_urls'] = []
 
@@ -58,11 +61,18 @@ class DuschbyggarnaSQARP(scrapy.Spider):
             item["attributes"]['variant_group_id'] = row[14].value
 
             # TODO - Not right format for this field!!
-            item['product_descriptions'] = row[16].value
+            item['product_descriptions'] = {
+                'EN': {
+                    'Product Description': {
+                        'text': row[16].value,
+                        'html': row[16].value,
+                    }
+                }
+            }
 
             # TODO - NEVER use float, use Decimal for all prices...
             #  int can be used when that is possible for other numeric fields
-            item['rrp_value'] = float(row[17].value)
+            item['rrp_value'] = Decimal(row[17].value)
 
             ean_code = str(row[18].value)
             item['part_numbers'] = {
