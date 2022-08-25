@@ -41,7 +41,7 @@ class CategoryItem(scrapy.Item):
     child_product_urls = scrapy.Field()         # Optional
 
     # This field contains a list of URLs to related categories. Not used often.
-    related_category_urls = scrapy.Field        # Optional
+    related_category_urls = scrapy.Field()       # Optional
 
     # These fields contains the category description in html. They are not always available.
     description_html = scrapy.Field()           # Optional
@@ -55,12 +55,7 @@ class CategoryItem(scrapy.Item):
     image_urls = scrapy.Field()                 # Optional
     image_details = scrapy.Field()              # Optional
     images = scrapy.Field()                     # Added by the Pipeline
-    import_export_taric_code_eu = scrapy.Field()
-    import_export_country_of_origin = scrapy.Field()
-    brand = scrapy.Field()
-    series = scrapy.Field()
-    unique_selling_points = scrapy.Field()
-    model = scrapy.Field()
+
 
 class ProductItem(scrapy.Item):
     """
@@ -96,6 +91,11 @@ class ProductItem(scrapy.Item):
     #  name of the variant.
     title = scrapy.Field()                      # Mandatory, validation exists
     sub_title = scrapy.Field()                  # Optional
+
+    # refined in pipelines, based on rules for each supplier on what the new catalog name should be if
+    # the procurement product is copied
+    suggested_catalog_name = scrapy.Field()
+    suggested_catalog_name_variant = scrapy.Field()
 
     # This is the breadcrumbs of the product. String.
     breadcrumbs = scrapy.Field()                # Optional, but available in almost 100% of the cases
@@ -163,23 +163,45 @@ class ProductItem(scrapy.Item):
     #   }
     attributes = scrapy.Field()                 # Optional
     variant_attributes = scrapy.Field()
-
     # image_urls is populated in the scraping process, contains a list of URLs to images.
-    # image_details is optional and can be used to store additional information about images. The image_url shall
-    #  be used as identifier. Example of data that can be stored here are "type of image", e.g. main image,
-    #  scenario image, mechanical drawing etc.
+    # image_data is mandatory. It is a dict with the url from image_urls as key. It has the following format:
+    # image_data = {
+    #     'priority': priority,        # mandatory, main image has 1, other images 10
+    #     'title': title,              # optional, if there is a title of the image, store that here
+    #     'alt-text': alt_text,        # optional, if there is an alt-text on the image, store that here
+    #     'description': description,  # optional, if there is an description on the image, store that here
+    #     'misc_data': misc_data,      # optional, if there is other relevant data, store that here. Name of variable,
+    #                                  #  as well as type of variable can be adjusted to fit the relevant data.
+    # }
     # images is populated by scrapy when the images are downloaded.
     image_urls = scrapy.Field()                 # Optional
     image_data = scrapy.Field()                 # Optional
     images = scrapy.Field()                     # Added by the Pipeline
 
     # video_urls is populated in the scraping process, contains a list of URLs to videos.
+    # video_data is mandatory, if video_urls is populated. It is a dict with the url from video_urls as key.
+    # It has the following format:
+    # video_data = {
+    #     'priority': priority,        # mandatory, main video has 1, other videos 10
+    #     'title': title,              # optional, if there is a title of the video, store that here
+    #     'alt-text': alt_text,        # optional, if there is an alt-text on the video, store that here
+    #     'description': description,  # optional, if there is an description on the video, store that here
+    #     'misc_data': misc_data,      # optional, if there is other relevant data, store that here. Name of variable,
+    #                                  #  as well as type of variable can be adjusted to fit the relevant data.
+    # }
     video_urls = scrapy.Field()                 # Optional
+    video_data = scrapy.Field()                 # Optional
 
     # file_urls is populated in the scraping process, contains a list of URLs to files.
-    # file_details is optional and can be used to store additional information about files. The file_url shall
-    #  be used as identifier. Example of data that can be stored here are "type of file", e.g. technical manual,
-    #  mechanical drawing etc.
+    # file_data is mandatory. It is a dict with the url from file_urls as key. It has the following format:
+    # file_data = {
+    #     'title': title,              # mandatory, if there is a title of the file, store that here. If there is
+    #                                  #  no title to extract, use the filename (without path) as title
+    #     'alt-text': alt_text,        # optional, if there is an alt-text on the file, store that here
+    #     'description': description,  # optional, if there is an description on the file, store that here
+    #     'misc_data': misc_data,      # optional, if there is other relevant data, store that here. Name of variable,
+    #                                  #  as well as type of variable can be adjusted to fit the relevant data.
+    # }
     # files is populated by scrapy when the files are downloaded.
     file_urls = scrapy.Field()                  # Optional
     file_data = scrapy.Field()                  # Optional
@@ -281,14 +303,98 @@ class ProductItem(scrapy.Item):
     #        "id": "7332793176529" }
     #     }
     part_numbers = scrapy.Field()               # Optional, validation exists
-    import_export_taric_code_eu = scrapy.Field()
-    import_export_country_of_origin = scrapy.Field()                  #
-    brand = scrapy.Field()
-    series = scrapy.Field()
-    unique_selling_points = scrapy.Field()
-    model = scrapy.Field()                  #
 
     # TODO - Things that might be added in the future...
     # This is used for products that have a parent, e.g.
     # parent_product_sku = scrapy.Field()
     # parent_product_reference = scrapy.Field()
+
+    # Import and export
+    import_export_taric_code_eu = scrapy.Field()
+    import_export_country_of_origin = scrapy.Field()
+
+    # New attributes, might be rearranged later non
+    brand = scrapy.Field()
+    series = scrapy.Field()
+    model = scrapy.Field()
+    unique_selling_points = scrapy.Field()
+
+
+class InspirationalItem(scrapy.Item):
+    """
+    This Item is used for inspirational data.
+    Inspirational data exist on e.g. brand level, category level, series level etc.
+    Can contain text, images, videos, documents.
+    """
+
+    # Should be set to the name of the scraper/supplier. Should be the same name that is used in ecombooster.io.
+    scraper = scrapy.Field()                    # Mandatory
+
+    entity_type = scrapy.Field()                # Mandatory, can be set to: brand, series or category
+    id = scrapy.Field()                         # Mandatory, needs to be unique. Can be set to the same as title if that is unique
+    name = scrapy.Field()                       # Mandatory, should also be unique
+    url = scrapy.Field()                        # Mandatory, should also be unique
+
+    # There can be different (types of) descriptions. Do manage this, we store them in a dict.
+    # One example can be found here:
+    # Example:
+    # descriptions = {
+    #     'EN': {
+    #         'Inspirational Description': {
+    #             'text': 'the raw text without html...',
+    #             'html': 'the html text...',
+    #         },
+    #     }
+    # }
+    descriptions = scrapy.Field()       # Optional, but available in almost 100% of the cases, validation exists
+
+    # image_urls is populated in the scraping process, contains a list of URLs to images.
+    # image_data is mandatory. It is a dict with the url from image_urls as key. It has the following format:
+    # image_data = {
+    #     'priority': priority,        # mandatory, main image has 1, other images 10
+    #     'title': title,              # optional, if there is a title of the image, store that here
+    #     'type: type,                 # optional, if there is a type defined it goes here...
+    #     'alt-text': alt_text,        # optional, if there is an alt-text on the image, store that here
+    #     'description': description,  # optional, if there is an description on the image, store that here
+    #     'misc_data': misc_data,      # optional, if there is other relevant data, store that here. Name of variable,
+    #                                  #  as well as type of variable can be adjusted to fit the relevant data.
+    # }
+    # images is populated by scrapy when the images are downloaded.
+    image_urls = scrapy.Field()                 # Optional
+    image_data = scrapy.Field()                 # Optional
+    images = scrapy.Field()                     # Added by the Pipeline
+
+    # video_urls is populated in the scraping process, contains a list of URLs to videos.
+    # video_data is mandatory. It is a dict with the url from video_urls as key. It has the following format:
+    # video_data = {
+    #     'priority': priority,        # mandatory, main video has 1, other videos 10
+    #     'title': title,              # optional, if there is a title of the video, store that here
+    #     'type: type,                 # optional, if there is a type defined it goes here...
+    #     'host: host,                 # optional, if there is a host defined it goes here...
+    #     'language: language,         # optional, if there is a language defined it goes here...
+    #     'alt-text': alt_text,        # optional, if there is an alt-text on the video, store that here
+    #     'description': description,  # optional, if there is an description on the video, store that here
+    #     'misc_data': misc_data,      # optional, if there is other relevant data, store that here. Name of variable,
+    #                                  #  as well as type of variable can be adjusted to fit the relevant data.
+    # }
+    # videos is populated by scrapy when the videos are downloaded.
+    video_urls = scrapy.Field()                 # Optional
+    video_data = scrapy.Field()                 # Optional
+    videos = scrapy.Field()                     # Added by the Pipeline
+
+    # file_urls is populated in the scraping process, contains a list of URLs to files.
+    # file_data is mandatory. It is a dict with the url from file_urls as key. It has the following format:
+    # file_data = {
+    #     'title': title,              # mandatory, if there is a title of the file, store that here. If there is
+    #                                  #  no title to extract, use the filename (without path) as title
+    #     'type: type,                 # optional, if there is a type defined it goes here...
+    #     'language: language,         # optional, if there is a language defined it goes here...
+    #     'alt-text': alt_text,        # optional, if there is an alt-text on the file, store that here
+    #     'description': description,  # optional, if there is an description on the file, store that here
+    #     'misc_data': misc_data,      # optional, if there is other relevant data, store that here. Name of variable,
+    #                                  #  as well as type of variable can be adjusted to fit the relevant data.
+    # }
+    # files is populated by scrapy when the files are downloaded.
+    file_urls = scrapy.Field()                  # Optional
+    file_data = scrapy.Field()                  # Optional
+    files = scrapy.Field()                      # Added by the Pipeline

@@ -5,8 +5,8 @@ from ..helpers import log_error
 from ..items import CategoryItem, ProductItem
 
 
-class Sqarp(scrapy.Spider):
-    name = "sqarp"
+class DuschbyggarnaSQARP(scrapy.Spider):
+    name = "duschbyggarna"
     error_log = []
     log_error = log_error
 
@@ -17,9 +17,9 @@ class Sqarp(scrapy.Spider):
         )
 
     def parse(self, response):
-        work_book = self.read_file('base.xlsx')
+        work_book = self.read_file('data_input/duschbyggarna_sqarp_base.xlsx')
 
-        if not self._is_valid(work_book['Document Overview']):
+        if not self.is_valid(work_book['Document Overview']):
             print('Received invalid document')
             return
 
@@ -33,7 +33,10 @@ class Sqarp(scrapy.Spider):
             category_item = categories.get(category_name)
             if not category_item:
                 category_item = CategoryItem()
+                # TODO - Why does title have https appended?
+                #  why was not url set for the category?
                 category_item['title'] = f'https://{category_name.lower()}'
+                category_item['url'] = f'https://{category_name.lower()}'
                 category_item['child_product_urls'] = []
 
             item = ProductItem()
@@ -53,32 +56,39 @@ class Sqarp(scrapy.Spider):
             item['attributes']["ecombooster_sku"] = row[0].value
             item['attributes']["name_of_variant_group"] = row[13].value
             item["attributes"]['variant_group_id'] = row[14].value
-            item['products_descriptions'] = row[16].value
-            item['rrp_value'] = float(row[17].value)
-            item['part_numbers'] = {}
 
-            temp_part_attr = {}
-            temp_part_attr["type"] = "EAN"
-            temp_part_attr["id"] = int(row[18].value)
-            item['part_numbers'][f"EAN_{temp_part_attr['id']}"] = temp_part_attr
+            # TODO - Not right format for this field!!
+            item['product_descriptions'] = row[16].value
+
+            # TODO - NEVER use float, use Decimal for all prices...
+            #  int can be used when that is possible for other numeric fields
+            item['rrp_value'] = float(row[17].value)
+
+            ean_code = str(row[18].value)
+            item['part_numbers'] = {
+                f'EAN_{ean_code}': {
+                    'type': 'EAN',
+                    'id': ean_code,
+                }
+            }
+
             item['parent_category_url'] = category_item['url']
 
             category_item['child_product_urls'].append(item['url'])
             categories[category_name] = category_item
             yield item
 
-        for _, value in categories.items():
-            yield value
+        for name, category_item in categories.items():
+            yield category_item
 
     @staticmethod
     def read_file(filename: str):
-        wb = load_workbook('base.xlsx')
+        wb = load_workbook(filename)
         return {sheet: wb[sheet] for sheet in wb.sheetnames}
 
     @staticmethod
-    def _is_valid(worksheet) -> bool:
+    def is_valid(worksheet) -> bool:
         # checks if the field exists after reading file
-
         export_config = {
             "Table format for relational data": "One relation per row",
             "Data on inspirational entities included": True,
@@ -98,5 +108,5 @@ class Sqarp(scrapy.Spider):
             input_config.update({
                 worksheet[e_value].value: worksheet[f_value].value,
             })
-        print(input_config)
+
         return export_config == input_config
