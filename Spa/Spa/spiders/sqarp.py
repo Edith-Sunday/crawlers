@@ -21,7 +21,6 @@ class DuschbyggarnaSQARP(scrapy.Spider):
         # work_book = self.read_file('data_input/duschbyggarna_sqarp_base.xlsx')
         work_book = self.read_file('base.xlsx')
 
-
         if not self.is_valid(work_book['Document Overview']):
             print('Received invalid document')
             return
@@ -29,6 +28,7 @@ class DuschbyggarnaSQARP(scrapy.Spider):
         ws = work_book['Product Base Data']
 
         packages = self.read_packages(ws)
+        specs = self.read_specs(ws)
 
         categories = {}
 
@@ -89,12 +89,34 @@ class DuschbyggarnaSQARP(scrapy.Spider):
             if package_data:
                 item['attributes'].update(package_data)
 
+            spec_data = specs.get(item['sku'])
+            if spec_data:
+                item['attributes'].update(spec_data)
+
             category_item['child_product_urls'].append(item['url'])
             categories[category_name] = category_item
             yield item
 
         for name, category_item in categories.items():
-            yield category_item
+            yield
+
+        for sheet in
+
+
+    @staticmethod
+    def check_sheets(filename: str):
+        wb = load_workbook(filename)
+        names = wb.sheetnames
+        # this should print the name of the sheets in the workbook and compare to the sheetnames we have originally written
+
+        sheet_names = ['Document Overview', 'Product Base Data', 'Packages', 'Product Attributes', 'Supplier Data', 'Product Images', 'Product Documents', 'Product Videos', 'Related Products']
+
+        for name in names:
+            if name in sheet_names:
+                continue
+            else:
+                print(f"{name} was added to workbook.")
+
 
     @staticmethod
     def read_file(filename: str):
@@ -133,7 +155,7 @@ class DuschbyggarnaSQARP(scrapy.Spider):
         if ws.max_column > 8:
             print('There seems to be more columns')
 
-        for row in ws.iter_rows(min_row=5, max_row=2896):
+        for row in ws.iter_rows(min_row=5, max_row=-1):
 
             temp_attr = {
                 'package_depth_mm': row[3].value,
@@ -143,4 +165,21 @@ class DuschbyggarnaSQARP(scrapy.Spider):
                 'package_weight_kg': row[7].value,
             }
             attr.update({row[0].value: temp_attr})
+        return attr
+
+    @staticmethod
+    def read_specs(ws):
+        attr = {}
+
+        specs_columns = [cell.value for row in ws.iter_rows(min_row=3, max_row=3) for cell in row]
+        title_columns = [cell.value for row in ws.iter_rows(min_row=4, max_row=4) for cell in row]
+
+        for row in ws.iter_rows(min_row=5, max_row=-1):
+            specs = {}
+            for idx, cell in enumerate(row):
+                if specs_columns[idx] == 'Specifikationer':
+                    # add cell.value to attributes
+                    specs.update({title_columns[idx]: cell.value})
+                    continue
+                attr.update({"specifications": specs})
         return attr
