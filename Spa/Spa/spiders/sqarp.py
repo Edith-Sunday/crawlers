@@ -301,6 +301,7 @@ class DuschbyggarnaSQARP(scrapy.Spider):
         if ws.max_column > 10:
             print('There seems to be more columns for Supplier Data')
             # ensure max column is actually 10
+        item = ProductItem()
 
         for row in ws.iter_rows(min_row=5, max_row=-1):
             supplier_info = {}
@@ -338,9 +339,9 @@ class DuschbyggarnaSQARP(scrapy.Spider):
                 "supplier_id": supplier_id,
                 "product_title": product_title,
                 "product_url": product_url,
-                "order_package_unit": order_package_unit,
+                item["order_package_unit"]: order_package_unit,
                 "list_price": list_price,
-                "stock_status_max_delivery_time_business_days": stock_status_max_delivery_time_business_days,
+                item["stock_status_max_delivery_time_business_days"]: stock_status_max_delivery_time_business_days,
 
 
             }

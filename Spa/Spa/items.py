@@ -318,6 +318,8 @@ class ProductItem(scrapy.Item):
     series = scrapy.Field()
     model = scrapy.Field()
     unique_selling_points = scrapy.Field()
+    order_package_unit = scrapy.Field()
+    stock_status_max_delivery_time_business_days = scrapy.Field()
 
 
 class InspirationalItem(scrapy.Item):
