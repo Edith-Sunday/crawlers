@@ -100,11 +100,10 @@ class DuschbyggarnaSQARP(scrapy.Spider):
     @staticmethod
     def check_sheets(filename: str):
         wb = load_workbook(filename)
-        names = wb.sheetnames
         # this should print the name of the sheets in the workbook and compare to the sheetnames we have originally written
         sheet_names = ['Document Overview', 'Product Base Data', 'Packages', 'Product Attributes', 'Supplier Data', 'Product Images', 'Product Documents', 'Product Videos', 'Related Products']
 
-        for name in names:
+        for name in wb.sheetnames:
             if name in sheet_names:
                 continue
             else:
